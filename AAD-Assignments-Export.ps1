@@ -1,13 +1,21 @@
 [CmdletBinding()]
 param (
-    [Parameter(Mandatory=$true)]
-    [string]
-    $AppObjectId
+    [Parameter(
+        Mandatory=$true,
+        HelpMessage='Object ID of the AzureAD Enterprize application to export roles from (required)'
+    )]
+    [string] $AppObjectId,
+
+    [Parameter(
+        HelpMessage='File path to write output (default .\assignments.json)'
+    )]
+    [string] $OutputFilePath
 )
 
 
 # Prompt the user to Authenticate to Azure AD
-$Swallow = Connect-AzureAD
+Connect-AzureAD
+
 
 $ServicePrincipal = Get-AzureADServicePrincipal -ObjectId $AppObjectId
 
@@ -25,18 +33,18 @@ foreach($Assignment in $RoleAssignments) {
     $Data = @{}
     $Data.type = $Assignment.PrincipalType
 
-    if($Assignment.PrincipalType -eq "User") {
+    if($Assignment.PrincipalType -eq 'User') {
         # Have to look up the user to get their Username rather than DisplayName
         $User = Get-AzureADUser -ObjectId $Assignment.PrincipalId
         $Data.name = $User.UserPrincipalName
-    } elseif($Assignment.PrincipalType -eq "Group") {
+    } elseif($Assignment.PrincipalType -eq 'Group') {
         $Data.name = $Assignment.PrincipalDisplayName
     } else {
         Continue
     }
 
 
-    $Parts = $Roles[$Assignment.Id].Split(":")
+    $Parts = $Roles[$Assignment.Id].Split(':')
     $Data.roleARN = $Parts[0]
     if($Parts.count -gt 1) {
         $Data.idpARN = $Parts[1]
@@ -45,5 +53,9 @@ foreach($Assignment in $RoleAssignments) {
     $Output += $Data
 }
 
+if(-not $OutputFilePath) {
+    $OutputFilePath = '.\assignments.json'
+}
 
-$Output | ConvertTo-Json | Out-File -FilePath ".\assignments.json"
+$Output | ConvertTo-Json | Out-File -FilePath $OutputFilePath
+'Successfully wrote file: {0}' -f $OutputFilePath 
